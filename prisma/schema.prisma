@@ -1,0 +1,1275 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  role      UserRole @default(AUTHOR)
+  avatar    String?
+  bio       String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  // Relations
+  pages     Page[]
+  revisions PageRevision[]
+  media     Media[]
+  
+  // CRM Relations
+  assignedContacts Contact[] @relation("ContactAssignments")
+  assignedDeals     Deal[]     @relation("DealAssignments")
+  assignedLeads     Lead[]     @relation("LeadAssignments")
+  assignedTasks     Task[]     @relation("TaskAssignments")
+  createdInteractions Interaction[] @relation("InteractionCreator")
+  createdTasks      Task[]     @relation("TaskCreator")
+  createdEmailTemplates EmailTemplate[] @relation("EmailTemplateCreator")
+  createdCampaigns  Campaign[] @relation("CampaignCreator")
+  
+  // Advanced Feature Relations
+  createdEmailCampaigns EmailCampaign[] @relation("EmailCampaignCreator")
+  createdCalendarEvents CalendarEvent[] @relation("CalendarEventCreator")
+  uploadedDocuments Document[] @relation("DocumentUploader")
+  createdWorkflows Workflow[] @relation("WorkflowCreator")
+  contentCalendarItems ContentCalendar[] @relation("ContentCalendarAuthor")
+  createdABTests ABTest[] @relation("ABTestCreator")
+  createdSocialAccounts SocialAccount[] @relation("SocialAccountCreator")
+  createdSocialPosts SocialPost[] @relation("SocialPostCreator")
+  createdIntegrations Integration[] @relation("IntegrationCreator")
+  createdAIContent AIContent[] @relation("AIContentCreator")
+  createdWhiteLabelConfigs WhiteLabelConfig[] @relation("WhiteLabelCreator")
+  createdBackups Backup[] @relation("BackupCreator")
+  
+  @@map("users")
+}
+
+model Page {
+  id          String     @id @default(cuid())
+  title       String
+  slug        String     @unique
+  content     String
+  excerpt     String?
+  status      PageStatus @default(DRAFT)
+  type        PageType   @default(PAGE)
+  template    String     @default("default")
+  parentId    String?
+  order       Int        @default(0)
+  featured    Boolean    @default(false)
+  publishedAt DateTime?
+  scheduledAt DateTime?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  parent      Page?      @relation("PageHierarchy", fields: [parentId], references: [id])
+  children    Page[]     @relation("PageHierarchy")
+  author      User       @relation(fields: [authorId], references: [id])
+  authorId    String
+  seo         SeoMeta?
+  schema      SchemaMarkup?
+  revisions   PageRevision[]
+  media       MediaItem[]
+  keywords    Keyword[]
+  
+  // Advanced Feature Relations
+  contentCalendarItem ContentCalendar? @relation("ContentCalendarPage")
+  abTests     ABTest[] @relation("ABTestPage")
+  
+  @@map("pages")
+}
+
+model SeoMeta {
+  id                String   @id @default(cuid())
+  pageId            String   @unique
+  metaTitle         String?
+  metaDescription   String?
+  canonicalUrl      String?
+  robotsIndex       Boolean  @default(true)
+  robotsFollow      Boolean  @default(true)
+  ogTitle           String?
+  ogDescription     String?
+  ogImage           String?
+  ogType            String   @default("website")
+  twitterTitle      String?
+  twitterDescription String?
+  twitterCard       String   @default("summary_large_image")
+  twitterSite       String?
+  twitterCreator    String?
+  focusKeywords     String?  // JSON array of keywords
+  wordCount         Int?
+  readingTime       Int?     // in minutes
+  h1                String?
+  h2Count           Int      @default(0)
+  internalLinks     Int      @default(0)
+  externalLinks     Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  // Relations
+  page              Page     @relation(fields: [pageId], references: [id])
+  
+  @@map("seo_meta")
+}
+
+model SchemaMarkup {
+  id             String           @id @default(cuid())
+  pageId         String           @unique
+  type           SchemaType
+  data           String           // JSON data
+  isValid        Boolean          @default(false)
+  lastValidated  DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  
+  // Relations
+  page           Page             @relation(fields: [pageId], references: [id])
+  
+  @@map("schema_markup")
+}
+
+model PageRevision {
+  id          String   @id @default(cuid())
+  pageId      String
+  title       String
+  content     String
+  excerpt     String?
+  status      PageStatus
+  authorId    String
+  version     Int
+  changeLog   String?
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  page        Page     @relation(fields: [pageId], references: [id])
+  author      User     @relation(fields: [authorId], references: [id])
+  
+  @@map("page_revisions")
+}
+
+model Media {
+  id          String     @id @default(cuid())
+  filename    String
+  originalName String
+  mimeType    String
+  size        Int
+  path        String
+  url         String
+  alt         String?
+  caption     String?
+  width       Int?
+  height      Int?
+  uploadedBy  String
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
+  // Relations
+  uploader    User       @relation(fields: [uploadedBy], references: [id])
+  pages       MediaItem[]
+  
+  @@map("media")
+}
+
+model MediaItem {
+  id        String   @id @default(cuid())
+  pageId    String
+  mediaId   String
+  order     Int      @default(0)
+  type      String   @default("image") // image, video, document
+  
+  // Relations
+  page      Page     @relation(fields: [pageId], references: [id])
+  media     Media    @relation(fields: [mediaId], references: [id])
+  
+  @@map("media_items")
+}
+
+model Keyword {
+  id          String   @id @default(cuid())
+  pageId      String
+  keyword     String
+  density     Float?
+  position    Int?     // position in content
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  page        Page     @relation(fields: [pageId], references: [id])
+  
+  @@map("keywords")
+}
+
+model Analytics {
+  id            String   @id @default(cuid())
+  pageId        String   @unique
+  pageViews     Int      @default(0)
+  uniqueViews   Int      @default(0)
+  avgTimeOnPage Float    @default(0)
+  bounceRate    Float    @default(0)
+  conversions   Int      @default(0)
+  lastUpdated   DateTime @default(now())
+  
+  @@map("analytics")
+}
+
+model SeoScore {
+  id            String   @id @default(cuid())
+  pageId        String   @unique
+  overallScore  Int      @default(0)
+  contentScore  Int      @default(0)
+  technicalScore Int     @default(0)
+  metaScore     Int      @default(0)
+  lastChecked   DateTime @default(now())
+  
+  @@map("seo_scores")
+}
+
+// CRM Models
+model Contact {
+  id          String      @id @default(cuid())
+  firstName   String
+  lastName    String
+  email       String      @unique
+  phone       String?
+  company     String?
+  jobTitle    String?
+  website     String?
+  linkedin    String?
+  source      String?     // Where the contact came from
+  status      ContactStatus @default(LEAD)
+  priority    Priority    @default(MEDIUM)
+  tags        String?     // JSON array of tags
+  notes       String?     // JSON array of notes
+  assignedTo  String?     // User ID
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  assignedUser User?      @relation("ContactAssignments", fields: [assignedTo], references: [id])
+  interactions Interaction[]
+  deals        Deal[]
+  convertedFromLeads Lead[] @relation("LeadConversion")
+  
+  // Advanced Feature Relations
+  calendarEvents CalendarEvent[] @relation("CalendarEventContact")
+  documents     Document[] @relation("DocumentContact")
+  leadScore     LeadScore?
+  
+  @@map("contacts")
+}
+
+model Interaction {
+  id          String          @id @default(cuid())
+  contactId   String
+  type        InteractionType
+  title       String
+  description String?
+  date        DateTime        @default(now())
+  duration    Int?            // Duration in minutes
+  outcome     String?         // Result of the interaction
+  nextStep    String?         // Follow-up action
+  createdBy   String          // User ID
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  
+  // Relations
+  contact     Contact         @relation(fields: [contactId], references: [id])
+  creator     User            @relation("InteractionCreator", fields: [createdBy], references: [id])
+  
+  @@map("interactions")
+}
+
+model Deal {
+  id          String      @id @default(cuid())
+  contactId   String
+  title       String
+  description String?
+  value       Float?      // Deal value in currency
+  currency    String      @default("USD")
+  stage       DealStage   @default(PROSPECTING)
+  probability Int         @default(0) // 0-100
+  expectedCloseDate DateTime?
+  actualCloseDate   DateTime?
+  status      DealStatus  @default(OPEN)
+  assignedTo  String?     // User ID
+  tags        String?     // JSON array of tags
+  notes       String?     // JSON array of notes
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  contact     Contact     @relation(fields: [contactId], references: [id])
+  assignedUser User?      @relation("DealAssignments", fields: [assignedTo], references: [id])
+  activities  DealActivity[]
+  
+  // Advanced Feature Relations
+  calendarEvents CalendarEvent[] @relation("CalendarEventDeal")
+  documents     Document[] @relation("DocumentDeal")
+  
+  @@map("deals")
+}
+
+model DealActivity {
+  id          String      @id @default(cuid())
+  dealId      String
+  type        ActivityType
+  title       String
+  description String?
+  date        DateTime    @default(now())
+  createdBy   String      // User ID
+  createdAt   DateTime    @default(now())
+  
+  // Relations
+  deal        Deal        @relation(fields: [dealId], references: [id])
+  
+  @@map("deal_activities")
+}
+
+model Lead {
+  id          String      @id @default(cuid())
+  firstName   String?
+  lastName    String?
+  email       String?
+  phone       String?
+  company     String?
+  jobTitle    String?
+  website     String?
+  source      String      // How they found us
+  campaign    String?     // Marketing campaign
+  medium      String?     // Marketing medium
+  content     String?     // Marketing content
+  status      LeadStatus  @default(NEW)
+  priority    Priority    @default(MEDIUM)
+  score       Int         @default(0) // Lead scoring
+  notes       String?
+  assignedTo  String?     // User ID
+  convertedToContactId String? // When lead becomes contact
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  assignedUser User?      @relation("LeadAssignments", fields: [assignedTo], references: [id])
+  convertedContact Contact? @relation("LeadConversion", fields: [convertedToContactId], references: [id])
+  
+  @@map("leads")
+}
+
+model Task {
+  id          String      @id @default(cuid())
+  title       String
+  description String?
+  type        TaskType
+  priority    Priority    @default(MEDIUM)
+  status      TaskStatus  @default(TODO)
+  dueDate     DateTime?
+  completedAt DateTime?
+  assignedTo  String      // User ID
+  relatedTo   String?     // Related entity ID (contact, deal, lead)
+  relatedType String?     // Entity type (contact, deal, lead)
+  createdBy   String      // User ID
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  assignedUser User       @relation("TaskAssignments", fields: [assignedTo], references: [id])
+  creator     User        @relation("TaskCreator", fields: [createdBy], references: [id])
+  
+  @@map("tasks")
+}
+
+model EmailTemplate {
+  id          String      @id @default(cuid())
+  name        String
+  subject     String
+  content     String      // HTML content
+  type        EmailType
+  isActive    Boolean     @default(true)
+  variables   String?     // JSON array of template variables
+  createdBy   String      // User ID
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  creator     User        @relation("EmailTemplateCreator", fields: [createdBy], references: [id])
+  campaigns   EmailCampaign[]
+  
+  @@map("email_templates")
+}
+
+model Campaign {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  type        CampaignType
+  status      CampaignStatus @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  budget      Float?
+  targetAudience String?   // JSON description of target audience
+  goals       String?     // JSON array of campaign goals
+  createdBy   String      // User ID
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  
+  // Relations
+  creator     User        @relation("CampaignCreator", fields: [createdBy], references: [id])
+  
+  @@map("campaigns")
+}
+
+// Enums
+enum UserRole {
+  AUTHOR
+  EDITOR
+  PUBLISHER
+  ADMIN
+}
+
+enum PageStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum PageType {
+  PAGE
+  SERVICE
+  BLOG
+  HOMEPAGE
+  LANDING
+  CASE_STUDY
+}
+
+enum SchemaType {
+  ORGANIZATION
+  SERVICE
+  ARTICLE
+  BREADCRUMB_LIST
+}
+
+// CRM Enums
+enum ContactStatus {
+  LEAD
+  PROSPECT
+  ACTIVE
+  INACTIVE
+  CHURNED
+}
+
+enum Priority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum InteractionType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  TASK
+  DEMO
+  PROPOSAL
+  FOLLOW_UP
+}
+
+enum DealStage {
+  PROSPECTING
+  QUALIFICATION
+  NEED_ANALYSIS
+  VALUE_PROPOSITION
+  PROPOSAL
+  NEGOTIATION
+  CLOSED_WON
+  CLOSED_LOST
+}
+
+enum DealStatus {
+  OPEN
+  WON
+  LOST
+  CANCELLED
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  QUALIFIED
+  CONVERTED
+  UNQUALIFIED
+  DEAD
+}
+
+enum TaskType {
+  CALL
+  EMAIL
+  MEETING
+  FOLLOW_UP
+  PROPOSAL
+  DEMO
+  NOTE
+  REMINDER
+}
+
+enum TaskStatus {
+  TODO
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ActivityType {
+  CALL
+  EMAIL
+  MEETING
+  NOTE
+  TASK
+  PROPOSAL
+  DEMO
+  FOLLOW_UP
+}
+
+enum EmailType {
+  WELCOME
+  NEWSLETTER
+  PROMOTION
+  FOLLOW_UP
+  PROPOSAL
+  INVOICE
+  REMINDER
+  ANNOUNCEMENT
+}
+
+enum CampaignType {
+  EMAIL
+  SOCIAL_MEDIA
+  PPC
+  CONTENT
+  EVENT
+  DIRECT_MAIL
+  REFERRAL
+}
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+// Advanced CRM/CMS Models
+
+// Email Campaign Management
+model EmailCampaign {
+  id              String            @id @default(cuid())
+  name            String
+  subject         String
+  templateId      String
+  listId          String?           // Email list ID
+  status          EmailCampaignStatus @default(DRAFT)
+  scheduledAt     DateTime?
+  sentAt          DateTime?
+  totalRecipients Int               @default(0)
+  totalSent       Int               @default(0)
+  totalOpened     Int               @default(0)
+  totalClicked    Int               @default(0)
+  totalBounced    Int               @default(0)
+  totalUnsubscribed Int             @default(0)
+  createdBy       String            // User ID
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  
+  // Relations
+  template        EmailTemplate     @relation(fields: [templateId], references: [id])
+  emailList       EmailList?        @relation(fields: [listId], references: [id])
+  creator         User              @relation("EmailCampaignCreator", fields: [createdBy], references: [id])
+  recipients      EmailCampaignRecipient[]
+  
+  @@map("email_campaigns")
+}
+
+model EmailList {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  contacts    String   // JSON array of contact IDs
+  isActive    Boolean  @default(true)
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  campaigns   EmailCampaign[]
+  
+  @@map("email_lists")
+}
+
+model EmailCampaignRecipient {
+  id         String   @id @default(cuid())
+  campaignId String
+  contactId  String
+  email      String
+  status     EmailRecipientStatus @default(PENDING)
+  openedAt   DateTime?
+  clickedAt  DateTime?
+  bouncedAt  DateTime?
+  unsubscribedAt DateTime?
+  createdAt  DateTime @default(now())
+  
+  // Relations
+  campaign   EmailCampaign @relation(fields: [campaignId], references: [id])
+  
+  @@map("email_campaign_recipients")
+}
+
+// Calendar Integration
+model CalendarEvent {
+  id          String        @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  location    String?
+  isAllDay    Boolean       @default(false)
+  type        CalendarEventType
+  status      CalendarEventStatus @default(SCHEDULED)
+  externalId  String?       // Google Calendar/Outlook event ID
+  provider    CalendarProvider?
+  contactId   String?
+  dealId      String?
+  createdBy   String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  creator     User          @relation("CalendarEventCreator", fields: [createdBy], references: [id])
+  contact     Contact?      @relation("CalendarEventContact", fields: [contactId], references: [id])
+  deal        Deal?         @relation("CalendarEventDeal", fields: [dealId], references: [id])
+  
+  @@map("calendar_events")
+}
+
+// Document Management
+model Document {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  fileName    String
+  filePath    String
+  fileSize    Int
+  mimeType    String
+  type        DocumentType
+  version     String        @default("1.0")
+  status      DocumentStatus @default(DRAFT)
+  contactId   String?
+  dealId      String?
+  tags        String?       // JSON array of tags
+  uploadedBy  String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  uploader    User          @relation("DocumentUploader", fields: [uploadedBy], references: [id])
+  contact     Contact?      @relation("DocumentContact", fields: [contactId], references: [id])
+  deal        Deal?         @relation("DocumentDeal", fields: [dealId], references: [id])
+  versions    DocumentVersion[]
+  
+  @@map("documents")
+}
+
+model DocumentVersion {
+  id          String   @id @default(cuid())
+  documentId  String
+  version     String
+  fileName    String
+  filePath    String
+  fileSize    Int
+  changelog   String?
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  document    Document @relation(fields: [documentId], references: [id])
+  
+  @@map("document_versions")
+}
+
+// Sales Forecasting
+model SalesForecast {
+  id              String   @id @default(cuid())
+  period          String   // e.g., "2024-01", "2024-Q1"
+  predictedRevenue Float   @default(0)
+  actualRevenue   Float    @default(0)
+  confidence      Float    @default(0) // 0-100
+  dealCount       Int      @default(0)
+  avgDealSize     Float    @default(0)
+  winRate         Float    @default(0)
+  model           String   // AI model used
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("sales_forecasts")
+}
+
+// Customer Segmentation
+model CustomerSegment {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  criteria    String   // JSON criteria for segmentation
+  contactIds  String   // JSON array of contact IDs
+  isActive    Boolean  @default(true)
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("customer_segments")
+}
+
+// Automated Workflows
+model Workflow {
+  id          String        @id @default(cuid())
+  name        String
+  description String?
+  trigger     WorkflowTrigger
+  conditions  String        // JSON conditions
+  actions     String        // JSON actions
+  isActive    Boolean       @default(true)
+  runCount    Int           @default(0)
+  lastRunAt   DateTime?
+  createdBy   String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  creator     User          @relation("WorkflowCreator", fields: [createdBy], references: [id])
+  executions  WorkflowExecution[]
+  
+  @@map("workflows")
+}
+
+model WorkflowExecution {
+  id         String   @id @default(cuid())
+  workflowId String
+  triggerData String  // JSON data that triggered the workflow
+  status     WorkflowExecutionStatus @default(PENDING)
+  result     String?  // JSON result of execution
+  error      String?
+  startedAt  DateTime @default(now())
+  completedAt DateTime?
+  
+  // Relations
+  workflow   Workflow @relation(fields: [workflowId], references: [id])
+  
+  @@map("workflow_executions")
+}
+
+// Content Calendar
+model ContentCalendar {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  contentType String   // BLOG, SOCIAL, EMAIL, etc.
+  status      ContentStatus @default(PLANNED)
+  publishDate DateTime
+  authorId    String   // User ID
+  pageId      String?  // If it's a page
+  tags        String?  // JSON array of tags
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  author      User     @relation("ContentCalendarAuthor", fields: [authorId], references: [id])
+  page        Page?    @relation("ContentCalendarPage", fields: [pageId], references: [id])
+  
+  @@unique([pageId])
+  @@map("content_calendar")
+}
+
+// A/B Testing
+model ABTest {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  pageId      String
+  variantA    String   // JSON content for variant A
+  variantB    String   // JSON content for variant B
+  traffic     Int      @default(50) // Percentage traffic to variant A
+  status      ABTestStatus @default(DRAFT)
+  startDate   DateTime?
+  endDate     DateTime?
+  impressionsA Int     @default(0)
+  impressionsB Int     @default(0)
+  conversionsA Int     @default(0)
+  conversionsB Int     @default(0)
+  winner      String?  // A, B, or INCONCLUSIVE
+  confidence  Float?   // Statistical confidence
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  page        Page     @relation("ABTestPage", fields: [pageId], references: [id])
+  creator     User     @relation("ABTestCreator", fields: [createdBy], references: [id])
+  
+  @@map("ab_tests")
+}
+
+// Multi-language Support
+model Language {
+  id          String   @id @default(cuid())
+  code        String   @unique // e.g., "en", "es", "fr"
+  name        String   // e.g., "English", "Spanish", "French"
+  isActive    Boolean  @default(true)
+  isDefault   Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  
+  // Relations
+  translations Translation[]
+  
+  @@map("languages")
+}
+
+model Translation {
+  id          String   @id @default(cuid())
+  entityId    String   // ID of the entity being translated
+  entityType  String   // Type of entity (page, product, etc.)
+  field       String   // Field being translated
+  languageId  String
+  value       String   // Translated value
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  language    Language @relation(fields: [languageId], references: [id])
+  
+  @@map("translations")
+}
+
+// Advanced Analytics
+model HeatmapData {
+  id          String   @id @default(cuid())
+  pageId      String
+  sessionId   String
+  x           Float
+  y           Float
+  viewport    String   // JSON viewport dimensions
+  timestamp   DateTime @default(now())
+  
+  @@map("heatmap_data")
+}
+
+model UserBehavior {
+  id          String   @id @default(cuid())
+  sessionId   String
+  userId      String?  // If authenticated
+  pagePath    String
+  referrer    String?
+  userAgent   String
+  ipAddress   String?
+  events      String   // JSON array of events
+  duration    Int      // Time on page in seconds
+  timestamp   DateTime @default(now())
+  
+  @@map("user_behavior")
+}
+
+// Social Media Integration
+model SocialAccount {
+  id          String        @id @default(cuid())
+  platform    SocialPlatform
+  accountId   String
+  accountName String
+  accessToken String?
+  refreshToken String?
+  isActive    Boolean       @default(true)
+  createdBy   String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  creator     User          @relation("SocialAccountCreator", fields: [createdBy], references: [id])
+  posts       SocialPost[]
+  
+  @@map("social_accounts")
+}
+
+model SocialPost {
+  id          String        @id @default(cuid())
+  accountId   String
+  content     String
+  mediaUrls   String?       // JSON array of media URLs
+  platform    SocialPlatform
+  postId      String?       // External post ID
+  status      SocialPostStatus @default(DRAFT)
+  scheduledAt DateTime?
+  publishedAt DateTime?
+  metrics     String?       // JSON metrics (likes, shares, etc.)
+  createdBy   String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  account     SocialAccount @relation(fields: [accountId], references: [id])
+  creator     User          @relation("SocialPostCreator", fields: [createdBy], references: [id])
+  
+  @@map("social_posts")
+}
+
+// Integrations
+model Integration {
+  id          String        @id @default(cuid())
+  name        String
+  type        IntegrationType
+  config      String        // JSON configuration
+  isActive    Boolean       @default(true)
+  lastSyncAt  DateTime?
+  createdBy   String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  creator     User          @relation("IntegrationCreator", fields: [createdBy], references: [id])
+  syncLogs    IntegrationSyncLog[]
+  
+  @@map("integrations")
+}
+
+model IntegrationSyncLog {
+  id           String   @id @default(cuid())
+  integrationId String
+  type         String   // SYNC_TYPE
+  status       String   // SUCCESS, ERROR, PARTIAL
+  recordsProcessed Int  @default(0)
+  recordsCreated Int    @default(0)
+  recordsUpdated Int    @default(0)
+  errors       String?  // JSON array of errors
+  startedAt    DateTime @default(now())
+  completedAt  DateTime?
+  
+  // Relations
+  integration  Integration @relation(fields: [integrationId], references: [id])
+  
+  @@map("integration_sync_logs")
+}
+
+// AI Features
+model AIContent {
+  id          String        @id @default(cuid())
+  type        AIContentType
+  prompt      String
+  content     String
+  model       String        // AI model used
+  tokens      Int?          // Token usage
+  cost        Float?        // Cost in USD
+  quality     Float?        // Quality score 0-100
+  status      AIContentStatus @default(DRAFT)
+  createdBy   String        // User ID
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  
+  // Relations
+  creator     User          @relation("AIContentCreator", fields: [createdBy], references: [id])
+  
+  @@map("ai_content")
+}
+
+model LeadScore {
+  id          String   @id @default(cuid())
+  contactId   String   @unique
+  score       Int      @default(0)
+  factors     String   // JSON scoring factors
+  lastCalculated DateTime @default(now())
+  recalculatedAt DateTime?
+  
+  // Relations
+  contact     Contact  @relation(fields: [contactId], references: [id])
+  
+  @@map("lead_scores")
+}
+
+// Advanced Features
+model WhiteLabelConfig {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String   @unique
+  logo        String?
+  primaryColor String?
+  secondaryColor String?
+  customCSS   String?
+  isActive    Boolean  @default(true)
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  creator     User     @relation("WhiteLabelCreator", fields: [createdBy], references: [id])
+  
+  @@map("white_label_configs")
+}
+
+model APIRateLimit {
+  id          String   @id @default(cuid())
+  key         String   @unique // API key or IP
+  limit       Int      @default(1000)
+  windowMs    Int      @default(3600000) // 1 hour
+  requests    Int      @default(0)
+  resetAt     DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("api_rate_limits")
+}
+
+model Permission {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  description String?
+  resource    String   // Resource type
+  action      String   // Action type
+  createdAt   DateTime @default(now())
+  
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           String   @id @default(cuid())
+  roleId       String
+  permissionId String
+  createdAt    DateTime @default(now())
+  
+  @@map("role_permissions")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  action      String
+  resource    String
+  resourceId  String?
+  oldValues   String?  // JSON old values
+  newValues   String?  // JSON new values
+  ipAddress   String?
+  userAgent   String?
+  timestamp   DateTime @default(now())
+  
+  @@map("audit_logs")
+}
+
+model Backup {
+  id          String   @id @default(cuid())
+  name        String
+  type        BackupType
+  size        Int
+  path        String
+  status      BackupStatus @default(CREATED)
+  createdBy   String   // User ID
+  createdAt   DateTime @default(now())
+  completedAt DateTime?
+  
+  // Relations
+  creator     User     @relation("BackupCreator", fields: [createdBy], references: [id])
+  
+  @@map("backups")
+}
+
+model Tenant {
+  id          String   @id @default(cuid())
+  name        String
+  domain      String   @unique
+  database    String
+  status      TenantStatus @default(ACTIVE)
+  plan        String   // FREE, PRO, ENTERPRISE
+  settings    String?  // JSON settings
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@map("tenants")
+}
+
+// New Enums for Advanced Features
+
+enum EmailCampaignStatus {
+  DRAFT
+  SCHEDULED
+  SENDING
+  SENT
+  PAUSED
+  CANCELLED
+}
+
+enum EmailRecipientStatus {
+  PENDING
+  SENT
+  OPENED
+  CLICKED
+  BOUNCED
+  UNSUBSCRIBED
+}
+
+enum CalendarEventType {
+  MEETING
+  CALL
+  TASK
+  FOLLOW_UP
+  DEMO
+  PROPOSAL
+  REMINDER
+  OTHER
+}
+
+enum CalendarEventStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum CalendarProvider {
+  GOOGLE_CALENDAR
+  OUTLOOK
+  APPLE_CALENDAR
+  CALDAV
+}
+
+enum DocumentType {
+  CONTRACT
+  PROPOSAL
+  INVOICE
+  REPORT
+  PRESENTATION
+  SPREADSHEET
+  IMAGE
+  VIDEO
+  OTHER
+}
+
+enum DocumentStatus {
+  DRAFT
+  REVIEW
+  APPROVED
+  ARCHIVED
+  EXPIRED
+}
+
+enum WorkflowTrigger {
+  CONTACT_CREATED
+  DEAL_CREATED
+  DEAL_STAGE_CHANGED
+  TASK_COMPLETED
+  EMAIL_OPENED
+  FORM_SUBMITTED
+  SCHEDULED
+  WEBHOOK
+}
+
+enum WorkflowExecutionStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum ContentStatus {
+  PLANNED
+  IN_PROGRESS
+  REVIEW
+  SCHEDULED
+  PUBLISHED
+  ARCHIVED
+}
+
+enum ABTestStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum SocialPlatform {
+  FACEBOOK
+  TWITTER
+  LINKEDIN
+  INSTAGRAM
+  YOUTUBE
+  TIKTOK
+  PINTEREST
+}
+
+enum SocialPostStatus {
+  DRAFT
+  SCHEDULED
+  PUBLISHED
+  FAILED
+  DELETED
+}
+
+enum IntegrationType {
+  ZAPIER
+  SLACK
+  GOOGLE_ANALYTICS
+  STRIPE
+  CALENDLY
+  HUBSPOT
+  MAILCHIMP
+  SALESFORCE
+  CUSTOM
+}
+
+enum AIContentType {
+  BLOG_POST
+  EMAIL
+  SOCIAL_POST
+  PRODUCT_DESCRIPTION
+  AD_COPY
+  LANDING_PAGE
+  SUMMARY
+  TRANSLATION
+}
+
+enum AIContentStatus {
+  DRAFT
+  GENERATING
+  COMPLETED
+  FAILED
+  APPROVED
+}
+
+enum BackupType {
+  FULL
+  INCREMENTAL
+  DATABASE
+  FILES
+  CONFIGURATION
+}
+
+enum BackupStatus {
+  CREATED
+  IN_PROGRESS
+  COMPLETED
+  FAILED
+  RESTORED
+}
+
+enum TenantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  CANCELLED
+}
